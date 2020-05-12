@@ -54,6 +54,32 @@ app.get('/info', (req, res) => {
   res.send(lines.join("\n"))
 })
 
+const generateId = () => Math.floor(Math.random() * Math.floor(4000000000))
+
+app.post('/api/persons', (req, res) => {
+  console.debug(req, req.body);
+  const body = req.body
+
+  for (const field of ["name", "number"]) {
+    if (!body[field]) {
+      return res.status(400).json({error: `You must provide a '${field}' for that person`})
+    }
+  }
+  if (persons.filter(p => p.name.toLowerCase() === body.name.toLowerCase()).length > 0) {
+      return res.status(400).json({error: `There is already a person named '${body.name}' in the phone book`})
+  }
+
+  const person = {
+    name: body.name,
+    number: body.number,
+    id: generateId(),
+  }
+
+  persons = persons.concat(person)
+
+  res.json(person)
+})
+
 const PORT = 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
