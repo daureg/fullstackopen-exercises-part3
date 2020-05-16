@@ -15,19 +15,19 @@ app.get('/api/persons', (req, res) => {
   Person.find({}).then(persons => res.json(persons))
 })
 
-app.get('/api/persons/:id', (req, res) => {
+app.get('/api/persons/:id', (req, res, next) => {
   Person.findById(req.params.id)
     .then(person => { res.json(person) })
-    .catch(error => {console.error(error); res.status(404).end()})
+    .catch(error => next(error))
 })
 
-app.delete('/api/persons/:id', (req, res) => {
-  const id = Number(req.params.id)
-  persons = persons.filter(note => note.id !== id)
-  res.status(204).end()
+app.delete('/api/persons/:id', (req, res, next) => {
+  Person.findByIdAndRemove(req.params.id)
+    .then(result => { res.status(204).end() })
+    .catch(error => next(error))
 })
 
-app.get('/info', (req, res) => {
+app.get('/info', (req, res, next) => {
   Person.estimatedDocumentCount()
     .then(num_people => {
       lines = [
@@ -36,13 +36,10 @@ app.get('/info', (req, res) => {
       ]
       res.send(lines.join("\n"))
     })
-    .catch(error => {console.error(error); response.status(404).end()})
+    .catch(error => next(error))
 })
 
-const generateId = () => Math.floor(Math.random() * Math.floor(4000000000))
-
-app.post('/api/persons', (req, res) => {
-  console.debug(req, req.body);
+app.post('/api/persons', (req, res, next) => {
   const body = req.body
 
   for (const field of ["name", "number"]) {
@@ -50,11 +47,6 @@ app.post('/api/persons', (req, res) => {
       return res.status(400).json({error: `You must provide a '${field}' for that person`})
     }
   }
-  /*
-  if (persons.filter(p => p.name.toLowerCase() === body.name.toLowerCase()).length > 0) {
-      return res.status(400).json({error: `There is already a person named '${body.name}' in the phone book`})
-  }
-  */
 
   const person = new Person({
     name: body.name,
@@ -62,10 +54,24 @@ app.post('/api/persons', (req, res) => {
   })
   person.save()
     .then(savedPerson => { res.json(savedPerson) })
-    .catch(error => {console.error(error); response.status(404).end()})
+    .catch(error => next(error))
 })
 
+const unknownEndpoint = (req, res) => {
+  res.status(404).send({error: 'unknown endpoint'})
+}
+// handler of requests with unknown endpoint
+app.use(unknownEndpoint)
+
+const errorHandler = (error, req, res, next) => {
+  console.error(error.message)
+  if (error.name === 'CastError') {
+    return res.status(400).send({error: 'malformatted id'})
+  }
+  next(error)
+}
+// handler of requests with result to errors
+app.use(errorHandler)
+
 const PORT = process.env.PORT
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+app.listen(PORT, () => { console.log(`Server running on port ${PORT}`) })
